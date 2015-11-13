@@ -14,7 +14,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/syslog"
+	//	"log/syslog"
+	"github.com/inconshreveable/log15"
 	"net"
 	"net/url"
 	"regexp"
@@ -212,7 +213,7 @@ type FSock struct {
 	delayFunc          func() int
 	stopReadEvents     chan struct{} //Keep a reference towards forkedReadEvents so we can stop them whenever necessary
 	errReadEvents      chan error
-	logger             *syslog.Writer
+	logger             log15.Logger
 }
 
 // Reads headers until delimiter reached
@@ -224,7 +225,7 @@ func (self *FSock) readHeaders() (string, error) {
 		readLine, err = self.buffer.ReadBytes('\n')
 		if err != nil {
 			if self.logger != nil {
-				self.logger.Err(fmt.Sprintf("<FSock> Error reading headers: <%s>", err.Error()))
+				self.logger.Error(fmt.Sprintf("<FSock> Error reading headers: <%s>", err.Error()))
 			}
 			self.Disconnect()
 			return "", err
@@ -244,7 +245,7 @@ func (self *FSock) readBody(ln int) (string, error) {
 	for i := 0; i < ln; i++ {
 		if readByte, err := self.buffer.ReadByte(); err != nil {
 			if self.logger != nil {
-				self.logger.Err(fmt.Sprintf("<FSock> Error reading message body: <%s>", err.Error()))
+				self.logger.Error(fmt.Sprintf("<FSock> Error reading message body: <%s>", err.Error()))
 			}
 			self.Disconnect()
 			return "", err
@@ -391,7 +392,7 @@ func (self *FSock) dispatchEvent(event string) {
 	}
 	if !dispatched && self.logger != nil {
 		fmt.Printf("No dispatcher, event name: %s, handlers: %+v\n", eventName, self.eventHandlers)
-		self.logger.Warning(fmt.Sprintf("<FSock> No dispatcher for event: <%+v>", event))
+		self.logger.Warn(fmt.Sprintf("<FSock> No dispatcher for event: <%+v>", event))
 	}
 }
 
@@ -431,7 +432,7 @@ func (self *FSock) Connect() error {
 	conn, err := net.Dial("tcp", self.fsaddress)
 	if err != nil {
 		if self.logger != nil {
-			self.logger.Err(fmt.Sprintf("<FSock> Attempt to connect to FreeSWITCH, received: %s", err.Error()))
+			self.logger.Error(fmt.Sprintf("<FSock> Attempt to connect to FreeSWITCH, received: %s", err.Error()))
 		}
 		return err
 	}
@@ -569,7 +570,7 @@ func (self *FSock) LocalAddr() net.Addr {
 }
 
 // Connects to FS and starts buffering input
-func NewFSock(fsaddr, fspaswd string, reconnects int, eventHandlers map[string][]func(string, string), eventFilters map[string]string, l *syslog.Writer, connId string) (*FSock, error) {
+func NewFSock(fsaddr, fspaswd string, reconnects int, eventHandlers map[string][]func(string, string), eventFilters map[string]string, l log15.Logger, connId string) (*FSock, error) {
 	fsock := FSock{connMutex: new(sync.RWMutex), connId: connId, fsaddress: fsaddr, fspaswd: fspaswd, eventHandlers: eventHandlers, eventFilters: eventFilters, reconnects: reconnects,
 		logger: l, apiChan: make(chan string), cmdChan: make(chan string), delayFunc: fib()}
 	errConn := fsock.Connect()
@@ -585,7 +586,7 @@ type FSockPool struct {
 	reconnects               int
 	eventHandlers            map[string][]func(string, string)
 	eventFilters             map[string]string
-	logger                   *syslog.Writer
+	logger                   log15.Logger
 	allowedConns             chan struct{} // Will be populated with members allowed
 	fSocks                   chan *FSock   // Keep here reference towards the list of opened sockets
 }
@@ -625,7 +626,7 @@ func (self *FSockPool) PushFSock(fsk *FSock) {
 
 // Instantiates a new FSockPool
 func NewFSockPool(maxFSocks int, fsaddr, fspasswd string, reconnects int,
-	eventHandlers map[string][]func(string, string), eventFilters map[string]string, l *syslog.Writer, connId string) (*FSockPool, error) {
+	eventHandlers map[string][]func(string, string), eventFilters map[string]string, l log15.Logger, connId string) (*FSockPool, error) {
 	pool := &FSockPool{connId: connId, fsAddr: fsaddr, fsPasswd: fspasswd, reconnects: reconnects, eventHandlers: eventHandlers, eventFilters: eventFilters, logger: l}
 	pool.allowedConns = make(chan struct{}, maxFSocks)
 	var emptyConn struct{}
