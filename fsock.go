@@ -468,7 +468,9 @@ func (self *FSock) Connect() error {
 	stopReadEvents := make(chan struct{})
 	self.stopReadEvents = stopReadEvents
 	self.errReadEvents = make(chan error)
-	go self.readEvents(stopReadEvents, self.errReadEvents) // Fork read events in it's own goroutine
+	if len(self.eventHandlers) > 0 {
+		go self.readEvents(stopReadEvents, self.errReadEvents) // Fork read events in it's own goroutine
+	}
 	return nil
 }
 
