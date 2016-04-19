@@ -565,6 +565,23 @@ func (self *FSock) SendMsgCmd(uuid string, cmdargs map[string]string) error {
 	return nil
 }
 
+func (self *FSock) SendMsgCmdNoResp(uuid string, cmdargs map[string]string) error {
+	if err := self.ReconnectIfNeeded(); err != nil {
+		return err
+	}
+	if len(cmdargs) == 0 {
+		return errors.New("Need command arguments")
+	}
+	argStr := ""
+	for k, v := range cmdargs {
+		argStr += fmt.Sprintf("%s:%s\n", k, v)
+	}
+	self.connMutex.RLock()
+	fmt.Fprint(self.conn, fmt.Sprintf("sendmsg %s\n%s\n", uuid, argStr))
+	self.connMutex.RUnlock()
+	return nil
+}
+
 // Reads events from socket, attempt reconnect if disconnected
 func (self *FSock) ReadEvents() (err error) {
 	for {
