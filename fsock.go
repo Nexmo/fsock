@@ -15,7 +15,8 @@ import (
 	"fmt"
 	"io"
 	//	"log/syslog"
-	"github.com/inconshreveable/log15"
+	//"github.com/inconshreveable/log15"
+	log "gopkg.in/inconshreveable/log15.v2"
 	"net"
 	"net/url"
 	"regexp"
@@ -213,7 +214,7 @@ type FSock struct {
 	delayFunc          func() int
 	stopReadEvents     chan struct{} //Keep a reference towards forkedReadEvents so we can stop them whenever necessary
 	errReadEvents      chan error
-	logger             log15.Logger
+	logger             log.Logger
 }
 
 // Reads headers until delimiter reached
@@ -602,7 +603,7 @@ func (self *FSock) LocalAddr() net.Addr {
 }
 
 // Connects to FS and starts buffering input
-func NewFSock(fsaddr, fspaswd string, reconnects int, eventHandlers map[string][]func(string, string), eventFilters map[string]string, l log15.Logger, connId string) (*FSock, error) {
+func NewFSock(fsaddr, fspaswd string, reconnects int, eventHandlers map[string][]func(string, string), eventFilters map[string]string, l log.Logger, connId string) (*FSock, error) {
 	fsock := FSock{connMutex: new(sync.RWMutex), connId: connId, fsaddress: fsaddr, fspaswd: fspaswd, eventHandlers: eventHandlers, eventFilters: eventFilters, reconnects: reconnects,
 		logger: l, apiChan: make(chan string), cmdChan: make(chan string), delayFunc: fib()}
 	errConn := fsock.Connect()
@@ -618,7 +619,7 @@ type FSockPool struct {
 	reconnects               int
 	eventHandlers            map[string][]func(string, string)
 	eventFilters             map[string]string
-	logger                   log15.Logger
+	logger                   log.Logger
 	allowedConns             chan struct{} // Will be populated with members allowed
 	fSocks                   chan *FSock   // Keep here reference towards the list of opened sockets
 }
@@ -658,7 +659,7 @@ func (self *FSockPool) PushFSock(fsk *FSock) {
 
 // Instantiates a new FSockPool
 func NewFSockPool(maxFSocks int, fsaddr, fspasswd string, reconnects int,
-	eventHandlers map[string][]func(string, string), eventFilters map[string]string, l log15.Logger, connId string) (*FSockPool, error) {
+	eventHandlers map[string][]func(string, string), eventFilters map[string]string, l log.Logger, connId string) (*FSockPool, error) {
 	pool := &FSockPool{connId: connId, fsAddr: fsaddr, fsPasswd: fspasswd, reconnects: reconnects, eventHandlers: eventHandlers, eventFilters: eventFilters, logger: l}
 	pool.allowedConns = make(chan struct{}, maxFSocks)
 	var emptyConn struct{}
