@@ -537,7 +537,7 @@ func (self *FSock) SendApiCmdNoResp(cmdStr string) error {
 	if err := self.ReconnectIfNeeded(); err != nil {
 		return err
 	}
-	cmd := fmt.Sprintf("api %s\n\n", cmdStr)
+	cmd := fmt.Sprintf("bgapi %s\n\n", cmdStr)
 	self.connMutex.RLock()
 	fmt.Fprint(self.conn, cmd)
 	self.connMutex.RUnlock()
