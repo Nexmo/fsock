@@ -190,11 +190,19 @@ func MapChanData(chanInfoStr string) []map[string]string {
 }
 
 // successive Fibonacci numbers.
+//func fib() func() int {
+//	a, b := 0, 1
+//	return func() int {
+//		a, b = b, a+b
+//		return a
+//	}
+//}
+
+// we don't want use Fibonacci numbers here. If Freeswitch was down for a longer period, it takes even more time to reconnect to it. Lets use a static value here
 func fib() func() int {
-	a, b := 0, 1
 	return func() int {
-		a, b = b, a+b
-		return a
+
+		return 5
 	}
 }
 
