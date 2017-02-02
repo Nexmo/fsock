@@ -473,14 +473,12 @@ func (self *FSock) Connect() error {
 	if filterErr := self.filterEvents(self.eventFilters); filterErr != nil {
 		return filterErr
 	}
-	if len(self.eventHandlers) > 0 {
-		// Reinit readEvents channels so we avoid concurrency issues between goroutines
-		stopReadEvents := make(chan struct{})
-		self.stopReadEvents = stopReadEvents
-		self.errReadEvents = make(chan error)
+	// Reinit readEvents channels so we avoid concurrency issues between goroutines
+	stopReadEvents := make(chan struct{})
+	self.stopReadEvents = stopReadEvents
+	self.errReadEvents = make(chan error)
+	go self.readEvents(stopReadEvents, self.errReadEvents) // Fork read events in it's own goroutine
 
-		go self.readEvents(stopReadEvents, self.errReadEvents) // Fork read events in it's own goroutine
-	}
 	return nil
 }
 
@@ -529,11 +527,11 @@ func (self *FSock) SendApiCmd(cmdStr string) (string, error) {
 	if err := self.ReconnectIfNeeded(); err != nil {
 		return "", err
 	}
-	cmd := fmt.Sprintf("api %s\n\n", cmdStr)
+	cmd := fmt.Sprintf("bgapi %s\n\n", cmdStr)
 	self.connMutex.RLock()
 	fmt.Fprint(self.conn, cmd)
 	self.connMutex.RUnlock()
-	resEvent := <-self.apiChan
+	resEvent := <-self.cmdChan
 	if strings.Contains(resEvent, "-ERR") {
 		return "", errors.New(strings.TrimSpace(resEvent))
 	}
