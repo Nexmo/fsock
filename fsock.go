@@ -13,9 +13,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	//	"log/syslog"
-	//"github.com/inconshreveable/log15"
 	log "gopkg.in/inconshreveable/log15.v2"
 	"net"
 	"net/url"
@@ -231,13 +228,29 @@ func (self *FSock) readHeaders() (string, error) {
 	var readLine []byte
 	var err error
 	for {
+		self.connMutex.Lock()
+		// Set connection timeout (5 seconds)
+		timeoutDuration := 5 * time.Second
+		self.conn.SetReadDeadline(time.Now().Add(timeoutDuration))
+		self.connMutex.Unlock()
+
 		readLine, err = self.buffer.ReadBytes('\n')
 		if err != nil {
-			if self.logger != nil {
-				self.logger.Error(fmt.Sprintf("<FSock> Error reading headers: <%s>", err.Error()))
+			// Check for two type of errors here:
+			// - If not Ok (!ok), this is not a network error but a bufio error
+			// (most likely a EOF);
+			// - Otherwise it's a network error, in which case we still need to
+			// check if caused by our timeout.
+			if net_err, ok := err.(net.Error); !ok || !net_err.Timeout() {
+				if self.logger != nil {
+					self.logger.Error(fmt.Sprintf("<FSock> Error reading headers: <%s>", err.Error()))
+				}
+
+				self.Disconnect()
+				return "", err
 			}
-			self.Disconnect()
-			return "", err
+
+			// This is a timeout error (expected), let it continue
 		}
 		// No Error, add received to localread buffer
 		if len(bytes.TrimSpace(readLine)) == 0 {
@@ -592,7 +605,7 @@ func (self *FSock) SendMsgCmdNoResp(uuid string, cmdargs map[string]string) erro
 // Reads events from socket, attempt reconnect if disconnected
 func (self *FSock) ReadEvents() (err error) {
 	for {
-		if err = <-self.errReadEvents; err == io.EOF { // Disconnected, try reconnect
+		if err = <-self.errReadEvents; err != nil { // Disconnected, try reconnect
 			if err = self.ReconnectIfNeeded(); err != nil {
 				break
 			}
